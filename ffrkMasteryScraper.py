@@ -2,7 +2,9 @@ import praw, re, string, requests, numpy
 from collections import Counter
 from strsimpy.jaro_winkler import JaroWinkler
 
-
+##########################
+#  Functions
+##########################
 def getHeroNameList():
     r = requests.get('https://www.ffrktoolkit.com/ffrk-api/api/v1.0/IdLists/Character')
     heroNameList = [entry['Value'] for entry in r.json()]
@@ -129,35 +131,10 @@ def appendAveragesRow(outputLines, sbTypes, sbCounts, totalTeams):
     return
 
 
-def snipRealm(threadTitle):
-
-    return realm
-
-# You'll need to get your own client id and secret from Reddit - it's quick:
-# https://www.geeksforgeeks.org/how-to-get-client_id-and-client_secret-for-python-reddit-api-registration/
-reddit = praw.Reddit(
-     client_id="<Put client ID here>",
-     client_secret="<Put client secret here>",
-     user_agent="FFRK mastery scraper by /u/mutlibottlerocket"
-)
-
-threadIds = ['jkj12l', 'idrf6n', 'jxb735', 'i12tyd', 'iqk212', 'jc5k7a', 'h7ybrg', 'i97f4x', 'j7kwp4', 'hshnwo']  # this has to be updated as new Dreambreakers release
-sbTypes = ['LBO', 'SASB', 'AASB', 'GSB+', 'CSB', 'AOSB', 'USB', 'OSB', 'GSB', 'BSB', 'SSB', 'Unique']  # cleanSbNames() maps to these
-heroNameList = getHeroNameList()
-strsim = JaroWinkler()  # string similarity module for catching typos/abbreviations
-
-outputLines = []  # buffer to put output strings into
-summaryLines = ['#Summary table\n\n\n']
-appendTableHeader(summaryLines, sbTypes)
-summaryLines[-2] = summaryLines[-2].replace('|Hero|Used', '|Realm')
-summaryLines[-1] = summaryLines[-1][4:]
-for threadId in threadIds:
-    submission = reddit.submission(id=threadId)
-    threadTitle = submission.title
-    print(threadTitle)
-    realm = threadTitle[threadTitle.find("(")+1:threadTitle.find(")")]  # brittle way of snipping out realm from DB thread titles
-    topLevelComments = list(submission.comments)
-    sbDicts = [parseTeamTable(comment.body, heroNameList, strsim) for comment in topLevelComments]
+# takes in a list of PRAW comments containing /u/jadesphere format mastery survey posts and updates
+# outputLines and summaryLines for eventual text output
+def parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, summaryLines, sbTypes, heroNameList, strsim):
+    sbDicts = [parseTeamTable(comment.body, heroNameList, strsim) for comment in commentsList]
     flatNames = [item for dict in sbDicts for item in dict.keys()]
     nameCounts = Counter(flatNames)
 
@@ -171,7 +148,7 @@ for threadId in threadIds:
     totalTeams = len(['' for dict in sbDicts if dict != {} ])
 
     # write output to buffer list
-    outputLines.append('#[{}](https://redd.it/{})\n\n'.format(''.join(filter(lambda x: x in string.printable, submission.title)), threadId))
+    outputLines.append('#[{}]({})\n\n'.format(sectionTitle, postUrl))
     outputLines.append('Number of clears parsed: {}\n\n\n'.format(totalTeams))
     appendTableHeader(outputLines, sbTypes)
     namesByFreq = [pair[0] for pair in nameCounts.most_common()]
@@ -179,14 +156,77 @@ for threadId in threadIds:
         appendHeroRow(outputLines, heroName, sbTypes, nameCounts, sbCountDict)
     appendAveragesRow(outputLines, sbTypes, sbCounts, totalTeams)
     appendAveragesRow(summaryLines, sbTypes, sbCounts, totalTeams)
-    summaryLines[-1] = summaryLines[-1].replace('Average', realm).replace('|**n/a**', '').replace('**','')
+    # summaryLines[-1] = summaryLines[-1].replace('Average', realm).replace('|**n/a**', '').replace('**','')
     outputLines.append('\n\n\n')
+    return (outputLines, summaryLines)
 
+##########################
+#  Main
+##########################
+
+## Common stuff
+# You'll need to get your own client id and secret from Reddit - it's quick:
+# https://www.geeksforgeeks.org/how-to-get-client_id-and-client_secret-for-python-reddit-api-registration/
+reddit = praw.Reddit(
+     client_id="<Put client ID here>",
+     client_secret="<Put client secret here>",
+     user_agent="FFRK mastery scraper by /u/mutlibottlerocket"
+)
+
+dbThreadIds = ['jkj12l', 'idrf6n', 'jxb735', 'i12tyd', 'iqk212', 'jc5k7a', 'h7ybrg', 'i97f4x', 'j7kwp4', 'hshnwo']  # this has to be updated as new Dreambreakers release
+wodinCommentIds = ['gc4m5xz', 'gc4m761', 'gc4ma38', 'gc4mb1b']  # comment IDs of parent comments in WOdin mastery thread
+sbTypes = ['LBO', 'SASB', 'AASB', 'GSB+', 'CSB', 'AOSB', 'USB', 'OSB', 'GSB', 'BSB', 'SSB', 'Unique']  # cleanSbNames() maps to these
+heroNameList = getHeroNameList()
+strsim = JaroWinkler()  # string similarity module for catching typos/abbreviations
+
+
+## Run for Dreambreaker
+outputLines = []  # buffer to put output strings into
+summaryLines = ['#Summary table\n\n\n']
+appendTableHeader(summaryLines, sbTypes)
+summaryLines[-2] = summaryLines[-2].replace('|Hero|Used', '|Realm')
+summaryLines[-1] = summaryLines[-1][4:]
+for threadId in dbThreadIds:
+    submission = reddit.submission(id=threadId)
+    threadTitle = submission.title
+    print(threadTitle)
+    postUrl = submission.url
+    realm = threadTitle[threadTitle.find("(")+1:threadTitle.find(")")]  # brittle way of snipping out realm from DB thread titles
+    commentsList = list(submission.comments)
+    sectionTitle = ''.join(filter(lambda x: x in string.printable, threadTitle))
+    parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, summaryLines, sbTypes, heroNameList, strsim)
+    summaryLines[-1] = summaryLines[-1].replace('Average', realm).replace('|**n/a**', '').replace('**','')
 # prepend SB averages summary table
 summaryLines.append('\n\n\n')
 outputLines[:0] = summaryLines
-
 # write output to text file
-with open('output.txt', 'w') as f:
+with open('dbText.txt', 'w') as f:
     f.writelines(outputLines)
+
+
+## Run for WOdin
+outputLines = []  # buffer to put output strings into
+summaryLines = ['#Summary table\n\n\n']
+appendTableHeader(summaryLines, sbTypes)
+summaryLines[-2] = summaryLines[-2].replace('|Hero|Used', '|Version')
+summaryLines[-1] = summaryLines[-1][4:]
+for postId in wodinCommentIds:
+    parentComment = reddit.comment(id=postId)
+    postUrl = 'https://www.reddit.com{}'.format(parentComment.permalink)
+    parentComment.refresh()
+    parentComment.replies.replace_more()
+    commentsList = parentComment.replies.list()
+    # print(parentComment.body)
+    threadTitle = ' '.join(parentComment.body.split('\n')[0].split(' ')[-3:]).replace('**', '')
+    print(threadTitle)
+    parseMasterySubmissions(commentsList, threadTitle, postUrl, outputLines, summaryLines, sbTypes, heroNameList, strsim)
+    summaryLines[-1] = summaryLines[-1].replace('Average', threadTitle).replace('|**n/a**', '').replace('**','')
+# prepend SB averages summary table
+summaryLines.append('\n\n\n')
+outputLines[:0] = summaryLines
+# write output to text file
+with open('wodinText.txt', 'w') as f:
+    f.writelines(outputLines)
+
+
 print('Script finished!')

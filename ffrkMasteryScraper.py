@@ -57,7 +57,7 @@ def parseTeamTable(commentBody):
     bodyLines = commentBody.split('\n')
     tableStartIdx = [idx for idx, text in enumerate(bodyLines) if text[0:5].lower() == '|hero']
     if tableStartIdx == []:
-        return {}  # return empty sb dict if this comment has no table
+        return {}  # return empty sb dict if this comment has no mastery team table we can detect
     else:
         try:
             # print(bodyLines)
@@ -68,7 +68,6 @@ def parseTeamTable(commentBody):
             sbNamesRaw = [re.sub(r'\([^)]*\)', '', line[sbIdx]).replace(',', ' ').replace('/', ' ').split() for line in splitTable]  # remove stuff inside parens
             sbNamesClean = [cleanSbNames(sbNamesList) for sbNamesList in sbNamesRaw]
             sbDict = {re.sub('[^A-Za-z0-9]+', '', k).lower().capitalize():v for (k, v) in zip(heroNames, sbNamesClean)}  # standardize hero name formatting some
-            # sbDict = {re.sub('[^A-Za-z0-9]+', '', k).lower().capitalize():v for (k, v) in zip(heroNames, sbNamesRaw)}  # standardize hero name formatting some
             return sbDict
         except:
             return {}
@@ -91,10 +90,16 @@ def writeHeroRow(fileObj, heroName, sbTypes, nameCounts, sbCountDict):
     return
 
 
+def writeAveragesRow(fileObj, sbTypes, sbCounts, totalTeams):
+    sbAverages = ['**{:.2f}**'.format(sbCounts[sbType]/totalTeams) if sbType in sbCounts.keys() else '**0**' for sbType in sbTypes]
+    fileObj.write(''.join(['|{}|{}|'.format('**Average**', '**n/a**'), '|'.join(sbAverages), '|\n']))
+    return
+
+
 # You'll need to get your own client id and secret from Reddit - it's quick:
 # https://www.geeksforgeeks.org/how-to-get-client_id-and-client_secret-for-python-reddit-api-registration/
 reddit = praw.Reddit(
-     client_id="<add client ID here",
+     client_id="<add client ID here>",
      client_secret="<add client secret here>",
      user_agent="FFRK mastery scraper by /u/mutlibottlerocket"
 )
@@ -115,6 +120,10 @@ for threadId in threadIds:
         flatSbs = [item for dict in sbDicts if name in dict.keys() for item in dict[name]]
         sbCountDict[name] = Counter(flatSbs)
 
+    globalFlatSbs = [item for dict in sbDicts for key in dict.keys() for item in dict[key]]  # for averages
+    sbCounts = Counter(globalFlatSbs)
+    totalTeams = len(['' for dict in sbDicts if dict != {} ])
+
     # write output to text file
     with open('output.txt', 'a') as f:
         f.write('{}\n\n'.format(''.join(['#', ''.join(filter(lambda x: x in string.printable, submission.title))])))
@@ -122,6 +131,7 @@ for threadId in threadIds:
         namesByFreq = [pair[0] for pair in nameCounts.most_common()]
         for heroName in namesByFreq:
             writeHeroRow(f, heroName, sbTypes, nameCounts, sbCountDict)
+        writeAveragesRow(f, sbTypes, sbCounts, totalTeams)
         f.write('\n\n\n')
 
 print('Script finished!')

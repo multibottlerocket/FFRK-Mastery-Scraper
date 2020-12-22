@@ -54,7 +54,7 @@ def cleanSbNames(sbNameList):
             cleanList.append('AASB')
         elif 'woke' in sbNameCheck:
             cleanList.append('AASB')
-        elif 'GSB+' in sbNameCheck:
+        elif 'gsb+' in sbNameCheck:
             cleanList.append('GSB+')
         elif 'glint+' in sbNameCheck:
             cleanList.append('GSB+')

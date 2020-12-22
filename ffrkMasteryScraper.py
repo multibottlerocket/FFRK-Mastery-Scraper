@@ -168,13 +168,16 @@ def parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, su
 # You'll need to get your own client id and secret from Reddit - it's quick:
 # https://www.geeksforgeeks.org/how-to-get-client_id-and-client_secret-for-python-reddit-api-registration/
 reddit = praw.Reddit(
-     client_id="<Put client ID here>",
-     client_secret="<Put client secret here>",
+     client_id="<put client ID here>",
+     client_secret="<put client secret here>",
      user_agent="FFRK mastery scraper by /u/mutlibottlerocket"
 )
 
-dbThreadIds = ['jkj12l', 'idrf6n', 'jxb735', 'i12tyd', 'iqk212', 'jc5k7a', 'h7ybrg', 'i97f4x', 'j7kwp4', 'hshnwo']  # this has to be updated as new Dreambreakers release
-wodinCommentIds = ['gc4m5xz', 'gc4m761', 'gc4ma38', 'gc4mb1b']  # comment IDs of parent comments in WOdin mastery thread
+dbThreadIds = ['jkj12l', 'idrf6n', 'jxb735', 'i12tyd', 'iqk212',
+               'jc5k7a', 'h7ybrg', 'k66l27', 'i97f4x', 'j7kwp4',
+               'hshnwo', 'kffviy']  # this has to be updated as new Dreambreakers release
+wodinCommentIds = ['gc4m5xz', 'gc4m761', 'gc4ma38', 'gc4mb1b']  # comment IDs of parent comments in WOdin mastery threads for Earth and Lightning
+wodinThreadIds = ['k8pd7q', 'k8petf']  # thread IDs for individual phys/mag weak threads for Water WOdin
 sbTypes = ['LBO', 'SASB', 'AASB', 'GSB+', 'CSB', 'AOSB', 'USB', 'OSB', 'GSB', 'BSB', 'SSB', 'Unique']  # cleanSbNames() maps to these
 heroNameList = getHeroNameList()
 strsim = JaroWinkler()  # string similarity module for catching typos/abbreviations
@@ -204,7 +207,7 @@ with open('dbText.txt', 'w') as f:
     f.writelines(outputLines)
 
 
-## Run for WOdin
+## Run for master-thread WOdins (Earth & Lightning)
 outputLines = []  # buffer to put output strings into
 summaryLines = ['#Summary table\n\n\n']
 appendTableHeader(summaryLines, sbTypes)
@@ -220,6 +223,17 @@ for postId in wodinCommentIds:
     threadTitle = ' '.join(parentComment.body.split('\n')[0].split(' ')[-3:]).replace('**', '')
     print(threadTitle)
     parseMasterySubmissions(commentsList, threadTitle, postUrl, outputLines, summaryLines, sbTypes, heroNameList, strsim)
+    summaryLines[-1] = summaryLines[-1].replace('Average', threadTitle).replace('|**n/a**', '').replace('**','')
+## Run for dmg type-thread WOdins (Water)
+for threadId in wodinThreadIds:
+    submission = reddit.submission(id=threadId)
+    threadTitle = submission.title
+    print(threadTitle)
+    postUrl = submission.url
+    threadTitle = ' '.join(threadTitle.split(' ')[-3:]).replace('**', '')
+    commentsList = list(submission.comments)
+    sectionTitle = ''.join(filter(lambda x: x in string.printable, threadTitle))
+    parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, summaryLines, sbTypes, heroNameList, strsim)
     summaryLines[-1] = summaryLines[-1].replace('Average', threadTitle).replace('|**n/a**', '').replace('**','')
 # prepend SB averages summary table
 summaryLines.append('\n\n\n')

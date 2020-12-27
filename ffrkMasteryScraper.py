@@ -83,29 +83,33 @@ def cleanSbNames(sbNameList):
     return cleanList
 
 
-def parseTeamTable(commentBody, heroNameList, strsim):
+def parseTeamTable(comment, heroNameList, strsim):
     heroRowOffset = 2
     numHeroRows = 5
-    heroIdx = 1
-    lmIdx = 4
-    sbIdx = -2
 
-    bodyLines = commentBody.split('\n')
+    bodyLines = comment.body.split('\n')
     tableStartIdx = [idx for idx, text in enumerate(bodyLines) if text[0:5].lower() == '|hero']
     if tableStartIdx == []:
         return {}  # return empty sb dict if this comment has no mastery team table we can detect
     else:
         try:
-            # print(bodyLines)
             tableStartIdx = tableStartIdx[0]
+            tableHeader = bodyLines[tableStartIdx].split('|')
+            heroIdx = [idx for idx, s in enumerate(tableHeader) if 'hero' in s.lower()][0]
+            sbIdx = [idx for idx, s in enumerate(tableHeader) if ('sb' in s.lower() or 'soul' in s.lower())][0]
             tableLines = bodyLines[tableStartIdx+heroRowOffset:tableStartIdx+heroRowOffset+numHeroRows]
             splitTable = [line.split('|') for line in tableLines]
             heroNames = [re.split('[, ]', line[heroIdx])[0] for line in splitTable]
             heroNames = [cleanHeroName(name, heroNameList, strsim) for name in heroNames]
-            sbNamesRaw = [re.sub(r'\([^)]*\)', '', line[sbIdx]).replace(',', ' ').replace('/', ' ').split() for line in splitTable]  # remove stuff inside parens
+            sbNamesRaw = [re.split('[;,/ ]' ,re.sub(r'\([^)]*\)', '', line[sbIdx])) for line in splitTable]  # remove stuff inside parens
             sbNamesClean = [cleanSbNames(sbNamesList) for sbNamesList in sbNamesRaw]
             sbDict = {re.sub('[^A-Za-z0-9]+', '', k).lower().capitalize():v for (k, v) in zip(heroNames, sbNamesClean)}  # standardize hero name formatting some
-            return sbDict
+
+            # extra stuff for exporting to /u/DropeRj
+            fullTableLines = bodyLines[tableStartIdx:tableStartIdx+heroRowOffset+numHeroRows]
+            tableText = ["{}\n".format(line.replace('|', "\t'")) for line in fullTableLines]
+            tableText.insert(0, "'{}\n".format(comment.author.name))
+            return (sbDict, tableText)
         except:
             return {}
 
@@ -135,8 +139,10 @@ def appendAveragesRow(outputLines, sbTypes, sbCounts, totalTeams):
 
 # takes in a list of PRAW comments containing /u/jadesphere format mastery survey posts and updates
 # outputLines and summaryLines for eventual text output
-def parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, summaryLines, sbTypes, heroNameList, strsim):
-    sbDicts = [parseTeamTable(comment.body, heroNameList, strsim) for comment in commentsList]
+def parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, summaryLines, teamTableTextLines, sbTypes, heroNameList, strsim):
+    parsedTuples = [parseTeamTable(comment, heroNameList, strsim) for comment in commentsList]
+    sbDicts = [item[0] for item in parsedTuples if len(item) > 0]
+    teamTableText = [line for item in parsedTuples if len(item) > 0 for line in item[1]]
     flatNames = [item for dict in sbDicts for item in dict.keys()]
     nameCounts = Counter(flatNames)
 
@@ -152,6 +158,7 @@ def parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, su
     # write output to buffer list
     outputLines.append('#[{}]({})\n\n'.format(sectionTitle, postUrl))
     outputLines.append('Number of clears parsed: {}\n\n\n'.format(totalTeams))
+    teamTableText.insert(0, '*******{} {}*******\n'.format(sectionTitle, postUrl))
     appendTableHeader(outputLines, sbTypes)
     namesByFreq = [pair[0] for pair in nameCounts.most_common()]
     for heroName in namesByFreq:
@@ -160,7 +167,9 @@ def parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, su
     appendAveragesRow(summaryLines, sbTypes, sbCounts, totalTeams)
     # summaryLines[-1] = summaryLines[-1].replace('Average', realm).replace('|**n/a**', '').replace('**','')
     outputLines.append('\n\n\n')
-    return (outputLines, summaryLines)
+    for line in teamTableText:
+        teamTableTextLines.append(line)
+    return (outputLines, summaryLines, teamTableTextLines)
 
 ##########################
 #  Main
@@ -170,8 +179,8 @@ def parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, su
 # You'll need to get your own client id and secret from Reddit - it's quick:
 # https://www.geeksforgeeks.org/how-to-get-client_id-and-client_secret-for-python-reddit-api-registration/
 reddit = praw.Reddit(
-     client_id="<put client ID here>",
-     client_secret="<put client secret here>",
+     client_id="<Put client ID here>",
+     client_secret="<Put client secret here>",
      user_agent="FFRK mastery scraper by /u/mutlibottlerocket"
 )
 
@@ -191,6 +200,7 @@ summaryLines = ['#Summary table\n\n\n']
 appendTableHeader(summaryLines, sbTypes)
 summaryLines[-2] = summaryLines[-2].replace('|Hero|Used', '|Realm')
 summaryLines[-1] = summaryLines[-1][4:]
+teamTableTextLines = []
 for threadId in dbThreadIds:
     submission = reddit.submission(id=threadId)
     threadTitle = submission.title
@@ -199,15 +209,16 @@ for threadId in dbThreadIds:
     realm = threadTitle[threadTitle.find("(")+1:threadTitle.find(")")]  # brittle way of snipping out realm from DB thread titles
     commentsList = list(submission.comments)
     sectionTitle = ''.join(filter(lambda x: x in string.printable, threadTitle))
-    parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, summaryLines, sbTypes, heroNameList, strsim)
+    parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, summaryLines, teamTableTextLines, sbTypes, heroNameList, strsim)
     summaryLines[-1] = summaryLines[-1].replace('Average', realm).replace('|**n/a**', '').replace('**','')
 # prepend SB averages summary table
 summaryLines.append('\n\n\n')
 outputLines[:0] = summaryLines
 # write output to text file
-with open('dbText.txt', 'w') as f:
+with open('dbPostText.txt', 'w') as f:
     f.writelines(outputLines)
-
+with open('dbTeamTableText.txt', 'w') as f:
+    f.writelines(teamTableTextLines)
 
 ## Run for master-thread WOdins (Earth & Lightning)
 outputLines = []  # buffer to put output strings into
@@ -215,6 +226,7 @@ summaryLines = ['#Summary table\n\n\n']
 appendTableHeader(summaryLines, sbTypes)
 summaryLines[-2] = summaryLines[-2].replace('|Hero|Used', '|Version')
 summaryLines[-1] = summaryLines[-1][4:]
+teamTableTextLines = []
 for postId in wodinCommentIds:
     parentComment = reddit.comment(id=postId)
     postUrl = 'https://www.reddit.com{}'.format(parentComment.permalink)
@@ -224,7 +236,7 @@ for postId in wodinCommentIds:
     # print(parentComment.body)
     threadTitle = ' '.join(parentComment.body.split('\n')[0].split(' ')[-3:]).replace('**', '')
     print(threadTitle)
-    parseMasterySubmissions(commentsList, threadTitle, postUrl, outputLines, summaryLines, sbTypes, heroNameList, strsim)
+    parseMasterySubmissions(commentsList, threadTitle, postUrl, outputLines, summaryLines, teamTableTextLines, sbTypes, heroNameList, strsim)
     summaryLines[-1] = summaryLines[-1].replace('Average', threadTitle).replace('|**n/a**', '').replace('**','')
 ## Run for dmg type-thread WOdins (Water)
 for threadId in wodinThreadIds:
@@ -235,14 +247,15 @@ for threadId in wodinThreadIds:
     threadTitle = ' '.join(threadTitle.split(' ')[-3:]).replace('**', '')
     commentsList = list(submission.comments)
     sectionTitle = ''.join(filter(lambda x: x in string.printable, threadTitle))
-    parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, summaryLines, sbTypes, heroNameList, strsim)
+    parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, summaryLines, teamTableTextLines, sbTypes, heroNameList, strsim)
     summaryLines[-1] = summaryLines[-1].replace('Average', threadTitle).replace('|**n/a**', '').replace('**','')
 # prepend SB averages summary table
 summaryLines.append('\n\n\n')
 outputLines[:0] = summaryLines
 # write output to text file
-with open('wodinText.txt', 'w') as f:
+with open('wodinPostText.txt', 'w') as f:
     f.writelines(outputLines)
-
+with open('wodinTeamTableText.txt', 'w') as f:
+    f.writelines(teamTableTextLines)
 
 print('Script finished!')

@@ -1,0 +1,2 @@
+client_id = change_this_string_to_your_client_id
+client_secret = change_this_string_to_your_client_secret

@@ -87,9 +87,11 @@ def parseTeamTable(comment, heroNameList, strsim):
     heroRowOffset = 2
     numHeroRows = 5
 
-    bodyLines = comment.body.split('\n')
+    bodyLines = comment.body.replace('*','').split('\n')
     tableStartIdx = [idx for idx, text in enumerate(bodyLines) if text[0:5].lower() == '|hero']
     if tableStartIdx == []:
+        print('Comment {} passed over due to no team table detected'.format(comment))
+        print('Text passed: {}'.format(bodyLines))
         return {}  # return empty sb dict if this comment has no mastery team table we can detect
     else:
         try:
@@ -111,6 +113,8 @@ def parseTeamTable(comment, heroNameList, strsim):
             tableText.insert(0, "'{}\n".format(comment.author.name))
             return (sbDict, tableText)
         except:
+            print('Comment {} passed over due to exception parsing table'.format(comment))
+            print('Text passed: {}'.format(bodyLines))
             return {}
 
 
@@ -178,9 +182,14 @@ def parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, su
 ## Common stuff
 # You'll need to get your own client id and secret from Reddit - it's quick:
 # https://www.geeksforgeeks.org/how-to-get-client_id-and-client_secret-for-python-reddit-api-registration/
+# Put them into the "redditClientInfo.txt" file that should live in the same directoy as the script.
+with open('redditClientInfo.txt', 'r') as f:
+    rawText = f.readlines()
+clientId = rawText[0].split('=')[-1].replace(' ','')[:-1]
+clientSecret = rawText[1].split('=')[-1].replace(' ','')[:-1]
 reddit = praw.Reddit(
-     client_id="<Put client ID here>",
-     client_secret="<Put client secret here>",
+     client_id=clientId,
+     client_secret=clientSecret,
      user_agent="FFRK mastery scraper by /u/mutlibottlerocket"
 )
 
@@ -204,7 +213,7 @@ teamTableTextLines = []
 for threadId in dbThreadIds:
     submission = reddit.submission(id=threadId)
     threadTitle = submission.title
-    print(threadTitle)
+    print('\n*****************\n{}\n*****************\n'.format(threadTitle))
     postUrl = submission.url
     realm = threadTitle[threadTitle.find("(")+1:threadTitle.find(")")]  # brittle way of snipping out realm from DB thread titles
     commentsList = list(submission.comments)
@@ -235,14 +244,14 @@ for postId in wodinCommentIds:
     commentsList = parentComment.replies.list()
     # print(parentComment.body)
     threadTitle = ' '.join(parentComment.body.split('\n')[0].split(' ')[-3:]).replace('**', '')
-    print(threadTitle)
+    print('\n*****************\n{}\n*****************\n'.format(threadTitle))
     parseMasterySubmissions(commentsList, threadTitle, postUrl, outputLines, summaryLines, teamTableTextLines, sbTypes, heroNameList, strsim)
     summaryLines[-1] = summaryLines[-1].replace('Average', threadTitle).replace('|**n/a**', '').replace('**','')
 ## Run for dmg type-thread WOdins (Water)
 for threadId in wodinThreadIds:
     submission = reddit.submission(id=threadId)
     threadTitle = submission.title
-    print(threadTitle)
+    print('\n*****************\n{}\n*****************\n'.format(threadTitle))
     postUrl = submission.url
     threadTitle = ' '.join(threadTitle.split(' ')[-3:]).replace('**', '')
     commentsList = list(submission.comments)
@@ -258,4 +267,4 @@ with open('wodinPostText.txt', 'w') as f:
 with open('wodinTeamTableText.txt', 'w') as f:
     f.writelines(teamTableTextLines)
 
-print('Script finished!')
+print('\n\nScript finished!')

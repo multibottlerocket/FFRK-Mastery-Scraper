@@ -90,8 +90,8 @@ def parseTeamTable(comment, heroNameList, strsim):
     bodyLines = comment.body.replace('*','').split('\n')
     tableStartIdx = [idx for idx, text in enumerate(bodyLines) if text[0:5].lower() == '|hero']
     if tableStartIdx == []:
-        print('Comment {} passed over due to no team table detected'.format(comment))
-        print('Text passed: {}'.format(bodyLines))
+        # print('Comment {} passed over due to no team table detected'.format(comment))
+        # print('Text passed: {}'.format(bodyLines))
         return {}  # return empty sb dict if this comment has no mastery team table we can detect
     else:
         try:
@@ -186,18 +186,22 @@ def parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, su
 with open('redditClientInfo.txt', 'r') as f:
     rawText = f.readlines()
 clientId = rawText[0].split('=')[-1].replace(' ','')[:-1]
-clientSecret = rawText[1].split('=')[-1].replace(' ','')[:-1]
+clientSecret = rawText[1].split('=')[-1].replace(' ','')
 reddit = praw.Reddit(
      client_id=clientId,
      client_secret=clientSecret,
      user_agent="FFRK mastery scraper by /u/mutlibottlerocket"
 )
 
-dbThreadIds = ['jkj12l', 'idrf6n', 'jxb735', 'i12tyd', 'iqk212',
-               'jc5k7a', 'h7ybrg', 'k66l27', 'i97f4x', 'j7kwp4',
-               'hshnwo', 'kffviy']  # this has to be updated as new Dreambreakers release
-wodinCommentIds = ['gc4m5xz', 'gc4m761', 'gc4ma38', 'gc4mb1b']  # comment IDs of parent comments in WOdin mastery threads for Earth and Lightning
-wodinThreadIds = ['k8pd7q', 'k8petf']  # thread IDs for individual phys/mag weak threads for Water WOdin
+# still missing XII and core
+dbThreadIds = ['l7eleg', 'jkj12l', 'idrf6n', 'jxb735', 'i12tyd',
+               'l2cchd', 'iqk212', 'jc5k7a', 'h7ybrg', 'kj1cp9',
+               'k66l27', 'i97f4x', 'j7kwp4', 'kxjd5p', 'hshnwo',
+               'kffviy']  # this has to be updated as new Dreambreakers release
+wodinCommentIds = ['gc4m5xz', 'gc4m761', 'gc4ma38', 'gc4mb1b']  # comment IDs of parent comments in WOdin mastery threads for wind and earth-weak
+wodinThreadIds = ['k8pd7q', 'k8petf',  # thread IDs for individual phys/mag weak threads for lightinng-weak
+                  'kj1gdp', 'kj1fcw',  # water-weak
+                  'lc3fe6', 'lc3fey']  # fire-weak
 sbTypes = ['LBO', 'SASB', 'AASB', 'GSB+', 'CSB', 'AOSB', 'USB', 'OSB', 'GSB', 'BSB', 'SSB', 'Unique']  # cleanSbNames() maps to these
 heroNameList = getHeroNameList()
 strsim = JaroWinkler()  # string similarity module for catching typos/abbreviations

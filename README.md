@@ -15,7 +15,7 @@ You'll also need to add your own client ID and secret inside the script to use t
 https://www.geeksforgeeks.org/how-to-get-client_id-and-client_secret-for-python-reddit-api-registration/
 
 
-Ctrl+F for "client_secret" to find where to put your ID and secret
+You then put your client ID and secret into the "redditClientInfo.txt" file that stays on your local computer.
 
 
 

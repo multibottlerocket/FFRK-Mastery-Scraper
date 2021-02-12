@@ -44,6 +44,12 @@ def cleanSbNames(sbNameList):
             cleanList.append('LBO')
         elif 'limit' in sbNameCheck:
             cleanList.append('LBO')
+        elif 'lbg' in sbNameCheck:
+            cleanList.append('LBG')
+        elif 'dyad' in sbNameCheck:
+            cleanList.append('ADSB')
+        elif 'adsb' in sbNameCheck:
+            cleanlist.append('ADSB')
         elif 'sync' in sbNameCheck:
             cleanList.append('SASB')
         elif 'sasb' in sbNameCheck:
@@ -70,7 +76,11 @@ def cleanSbNames(sbNameList):
             cleanList.append('USB')
         elif 'osb' in sbNameCheck:
             cleanList.append('OSB')
+        elif 'gsb' in sbNameCheck:
+            cleanList.append('GSB')
         elif 'glint' in sbNameCheck:
+            cleanList.append('GSB')
+        elif 'g' in sbNameCheck:
             cleanList.append('GSB')
         elif 'bsb' in sbNameCheck:
             cleanList.append('BSB')
@@ -160,9 +170,17 @@ def parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, su
     totalTeams = len(['' for dict in sbDicts if dict != {} ])
 
     # write output to buffer list
-    outputLines.append('#[{}]({})\n\n'.format(sectionTitle, postUrl))
+    if len(postUrl) == 1:
+        for url in postUrl:
+            outputLines.append('#[{}]({})\n\n'.format(sectionTitle, url))
+    else:
+        surveyNumber = 1
+        for url in postUrl:
+            outputLines.append('#[{} - Survey {}]({})\n\n'.format(sectionTitle, surveyNumber, url))
+            surveyNumber += 1
     outputLines.append('Number of clears parsed: {}\n\n\n'.format(totalTeams))
-    teamTableText.insert(0, '*******{} {}*******\n'.format(sectionTitle, postUrl))
+    for url in postUrl:
+        teamTableText.insert(0, '*******{} {}*******\n'.format(sectionTitle, url))
     appendTableHeader(outputLines, sbTypes)
     namesByFreq = [pair[0] for pair in nameCounts.most_common()]
     for heroName in namesByFreq:
@@ -194,15 +212,15 @@ reddit = praw.Reddit(
 )
 
 # still missing XII and core
-dbThreadIds = ['l7eleg', 'jkj12l', 'idrf6n', 'jxb735', 'i12tyd',
-               'l2cchd', 'iqk212', 'jc5k7a', 'h7ybrg', 'kj1cp9',
-               'k66l27', 'i97f4x', 'j7kwp4', 'kxjd5p', 'hshnwo',
-               'kffviy']  # this has to be updated as new Dreambreakers release
-wodinCommentIds = ['gc4m5xz', 'gc4m761', 'gc4ma38', 'gc4mb1b']  # comment IDs of parent comments in WOdin mastery threads for wind and earth-weak
-wodinThreadIds = ['k8pd7q', 'k8petf',  # thread IDs for individual phys/mag weak threads for lightinng-weak
-                  'kj1gdp', 'kj1fcw',  # water-weak
-                  'lc3fe6', 'lc3fey']  # fire-weak
-sbTypes = ['LBO', 'SASB', 'AASB', 'GSB+', 'CSB', 'AOSB', 'USB', 'OSB', 'GSB', 'BSB', 'SSB', 'Unique']  # cleanSbNames() maps to these
+dbThreadIds = [['l7eleg'], ['jkj12l'], ['idrf6n'], ['jxb735'], ['i12tyd'],
+               ['l2cchd'], ['iqk212'], ['jc5k7a'], ['h7ybrg', 'kjz26x'], ['kj1cp9'],
+               ['k66l27'], ['i97f4x', 'lgszoq'], ['j7kwp4'], ['kxjd5p'], ['hshnwo', 'lgqz1h'],
+               ['kffviy']]  # this has to be updated as new Dreambreakers release AND as new survey threads are posted
+wodinCommentIds = [['gc4m5xz'], ['gc4m761'], ['gc4ma38'], ['gc4mb1b']]  # comment IDs of parent comments in WOdin mastery threads for wind and earth-weak
+wodinThreadIds = [['k8pd7q'], ['k8petf'],  # thread IDs for individual phys/mag weak threads for lighting-weak
+                  ['kj1gdp'], ['kj1fcw'],  # water-weak
+                  ['lc3fe6'], ['lc3fey']]  # fire-weak
+sbTypes = ['LBO', 'LBG', 'ADSB', 'SASB', 'AASB', 'GSB+', 'CSB', 'AOSB', 'USB', 'OSB', 'GSB', 'BSB', 'SSB', 'Unique']  # cleanSbNames() maps to these
 heroNameList = getHeroNameList()
 strsim = JaroWinkler()  # string similarity module for catching typos/abbreviations
 
@@ -215,15 +233,22 @@ summaryLines[-2] = summaryLines[-2].replace('|Hero|Used', '|Realm')
 summaryLines[-1] = summaryLines[-1][4:]
 teamTableTextLines = []
 for threadId in dbThreadIds:
-    submission = reddit.submission(id=threadId)
+    submission = reddit.submission(id=threadId[0])
     threadTitle = submission.title
+    realm = threadTitle[threadTitle.find("(")+1:threadTitle.find(")")]
     print('\n*****************\n{}\n*****************\n'.format(threadTitle))
-    postUrl = submission.url
-    realm = threadTitle[threadTitle.find("(")+1:threadTitle.find(")")]  # brittle way of snipping out realm from DB thread titles
-    commentsList = list(submission.comments)
+    commentsList = []
+    postUrl = []
+    for individual_threadId in threadId:
+        submission = reddit.submission(id=individual_threadId)
+        postUrl.append(submission.url)
+        for comment in submission.comments:
+            commentsList.append(comment)
     sectionTitle = ''.join(filter(lambda x: x in string.printable, threadTitle))
     parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, summaryLines, teamTableTextLines, sbTypes, heroNameList, strsim)
     summaryLines[-1] = summaryLines[-1].replace('Average', realm).replace('|**n/a**', '').replace('**','')
+
+
 # prepend SB averages summary table
 summaryLines.append('\n\n\n')
 outputLines[:0] = summaryLines
@@ -241,8 +266,9 @@ summaryLines[-2] = summaryLines[-2].replace('|Hero|Used', '|Version')
 summaryLines[-1] = summaryLines[-1][4:]
 teamTableTextLines = []
 for postId in wodinCommentIds:
-    parentComment = reddit.comment(id=postId)
-    postUrl = 'https://www.reddit.com{}'.format(parentComment.permalink)
+    parentComment = reddit.comment(id=postId[0])
+    postUrl = []
+    postUrl.append('https://www.reddit.com{}'.format(parentComment.permalink))
     parentComment.refresh()
     parentComment.replies.replace_more()
     commentsList = parentComment.replies.list()
@@ -251,14 +277,19 @@ for postId in wodinCommentIds:
     print('\n*****************\n{}\n*****************\n'.format(threadTitle))
     parseMasterySubmissions(commentsList, threadTitle, postUrl, outputLines, summaryLines, teamTableTextLines, sbTypes, heroNameList, strsim)
     summaryLines[-1] = summaryLines[-1].replace('Average', threadTitle).replace('|**n/a**', '').replace('**','')
-## Run for dmg type-thread WOdins (Water)
+## Run for dmg type-thread WOdins (Water, Fire, Ice)
 for threadId in wodinThreadIds:
-    submission = reddit.submission(id=threadId)
+    submission = reddit.submission(id=threadId[0])
     threadTitle = submission.title
     print('\n*****************\n{}\n*****************\n'.format(threadTitle))
-    postUrl = submission.url
+    commentsList = []
+    postUrl = []
+    for individual_threadId in threadId:
+        submission = reddit.submission(id=individual_threadId)
+        postUrl.append(submission.url)
+        for comment in submission.comments:
+            commentsList.append(comment)
     threadTitle = ' '.join(threadTitle.split(' ')[-3:]).replace('**', '')
-    commentsList = list(submission.comments)
     sectionTitle = ''.join(filter(lambda x: x in string.printable, threadTitle))
     parseMasterySubmissions(commentsList, sectionTitle, postUrl, outputLines, summaryLines, teamTableTextLines, sbTypes, heroNameList, strsim)
     summaryLines[-1] = summaryLines[-1].replace('Average', threadTitle).replace('|**n/a**', '').replace('**','')

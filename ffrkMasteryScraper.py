@@ -211,11 +211,11 @@ reddit = praw.Reddit(
      user_agent="FFRK mastery scraper by /u/mutlibottlerocket"
 )
 
-# still missing XII and core
-dbThreadIds = [['l7eleg'], ['jkj12l'], ['idrf6n'], ['jxb735'], ['i12tyd'],
-               ['l2cchd'], ['iqk212'], ['jc5k7a'], ['h7ybrg', 'kjz26x'], ['kj1cp9'],
-               ['k66l27'], ['i97f4x', 'lgszoq'], ['j7kwp4'], ['kxjd5p'], ['hshnwo', 'lgqz1h'],
-               ['kffviy']]  # this has to be updated as new Dreambreakers release AND as new survey threads are posted
+# still missing XII and core - this has to be updated as new Dreambreakers release AND as new survey threads are posted
+dbThreadIds = [['l7eleg'], ['jkj12l'], ['idrf6n', 'lniwha'], ['jxb735'], ['i12tyd', 'lnje7p'], #FFI - FFV
+               ['l2cchd'], ['iqk212'], ['jc5k7a'], ['h7ybrg', 'kjz26x'], ['kj1cp9'], #FFVI - FFX
+               ['k66l27'], ['i97f4x', 'lgszoq'], ['j7kwp4'], ['kxjd5p'], #FFXI, (missing FFXII), FFXIII - FFXV
+               ['hshnwo', 'lgqz1h'], ['kffviy']] #FFT, FFT0
 wodinCommentIds = [['gc4m5xz'], ['gc4m761'], ['gc4ma38'], ['gc4mb1b']]  # comment IDs of parent comments in WOdin mastery threads for wind and earth-weak
 wodinThreadIds = [['k8pd7q'], ['k8petf'],  # thread IDs for individual phys/mag weak threads for lighting-weak
                   ['kj1gdp'], ['kj1fcw'],  # water-weak
